@@ -52,7 +52,7 @@ public:
     big_integer operator<<(size_t sift_value) const;
     big_integer operator>>(size_t sift_value) const;
 
-    //TODO: friend << and friend >>
+    //friend << and friend >>
 
 };
 
