@@ -1,7 +1,9 @@
 #include "big_integer.h"
 #include <iostream>
 #include <cstring>
+#include <cstdint>
 #include <cmath>
+#include <algorithm>
 
 void big_integer::clear() {
     _oldest_digit = 0;
@@ -97,8 +99,25 @@ big_integer::big_integer(std::string const &value, size_t base) {
     initialize(value, base);
 }
 
+big_integer::big_integer(int digit) : _oldest_digit(0), _other_digits(nullptr){
+    if(digit < 0) {
+        digit = std::abs(digit);
+        _oldest_digit = digit;
+        change_sign();
+    }
+    else {
+        _oldest_digit = digit;
+    }
+}
+
+big_integer::big_integer() : _oldest_digit(0), _other_digits(nullptr) {}
+
 big_integer::big_integer(big_integer const &other) {
     copy(other);
+}
+
+big_integer::big_integer(std::vector<unsigned int> vec) : _oldest_digit(0), _other_digits(nullptr){
+    pushArr(normal_digit(vec));
 }
 
 big_integer::~big_integer() {
@@ -155,6 +174,119 @@ void big_integer::dump_int_value(std::ostream &stream, int value) {
         print_byte(stream, *p++);
         stream << ' ';
     }
+}
+
+bool big_integer::one_digit() const{
+    if(*_other_digits == 0) return true;
+    if(*_other_digits == 1 && get_abs_oldest_digit() == 0) return true;
+    return false;
+}
+
+int big_integer::get_abs_oldest_digit() const{
+    if(sign())
+        return _oldest_digit ^ (1 << ((sizeof(int) << 3) - 1));
+    return _oldest_digit;
+}
+
+std::vector<unsigned int> big_integer::normal_digit(std::vector<unsigned int> vec) const {
+    if (vec.size() == 1)
+        return vec;
+    std::vector<unsigned int> copy(0, 0);
+    auto i = vec.size();
+    for(; i > 0; i--)
+        if(vec[i-1] != 0) break;
+    if(i == 0) {
+        copy.push_back(0);
+        return copy;
+    }
+    for(auto j = 0; j < i; j++)
+        copy.push_back(vec[j]);
+    return copy;
+}
+
+void big_integer::pushArr(std::vector<unsigned int> const &vec) {
+    if(vec.empty()) throw std::logic_error("vec is empty");
+    clear();
+    if(vec.size() == 1) {
+        if(vec[0] > INT_MAX) {
+            _other_digits = new unsigned int[2];
+            _other_digits[1] = vec[0];
+            _oldest_digit = 0;
+            _other_digits[0] = 1;
+        }
+        else {
+            _oldest_digit = static_cast<int>(vec[0]);
+            _other_digits = nullptr;
+        }
+
+        return;
+    }
+    if(vec.size() == 2) {
+        if(vec[1] == 0) {
+            if(vec[0] > INT_MAX) {
+                _other_digits = new unsigned int[2];
+                _other_digits[1] = vec[0];
+                _oldest_digit = 0;
+                _other_digits[0] = 1;
+            }
+            else {
+                _oldest_digit = static_cast<int>(vec[0]);
+                _other_digits = nullptr;
+            }
+            return;
+        }
+        else {
+            if(vec[1] > INT_MAX) {
+                _oldest_digit = 0;
+                _other_digits = new unsigned int[vec.size() + 1];
+                _other_digits[0] = vec.size();
+                for(auto i = 0; i <= _other_digits[0]; i++)
+                    _other_digits[i + 1] = vec[i];
+            }
+            else {
+                _oldest_digit = static_cast<int>(vec[1]);
+                _other_digits = new unsigned int[vec.size() + 1];
+                _other_digits[0] = vec.size()-1;
+                for(auto i = 0; i <= _other_digits[0]; i++){
+                    _other_digits[i + 1] = vec[i];
+                }
+            }
+            return;
+        }
+        return;
+    }
+    if(vec[vec.size()-1] > INT_MAX) {
+        _oldest_digit = 0;
+        _other_digits = new unsigned int[vec.size() + 1];
+        _other_digits[0] = vec.size();
+        for(auto i = 0; i <= _other_digits[0]; i++){
+            _other_digits[i + 1] = vec[i];
+        }
+    }
+    else {
+        //std::cout << "d";
+        _oldest_digit = static_cast<int>(vec[vec.size()-1]);
+        _other_digits = new unsigned int[vec.size()];
+        _other_digits[0] = vec.size() - 1;
+        for(auto i = 0; i <= _other_digits[0]; i++){
+            _other_digits[i + 1] = vec[i];
+        }
+    }
+}
+
+big_integer &big_integer::setZero(){
+    clear();
+    _other_digits = nullptr;
+    _oldest_digit = 0;
+    return *this;
+}
+
+std::vector<unsigned int> big_integer::pushInArr() const{
+    std::vector<unsigned int> res;
+    for(size_t i = 1; i <= _other_digits[0]; i++){
+        res.push_back(get_digit(i));
+    }
+    return res;
 }
 
 big_integer &big_integer::operator+=(big_integer const &other) {
@@ -284,7 +416,6 @@ big_integer big_integer::operator-() const {
     return big_integer(*this).change_sign();
 }
 
-
 big_integer &big_integer::operator*=(big_integer const &other) {
     if (other.is_equal_to_zero())
         return *this = other;
@@ -347,7 +478,6 @@ big_integer &big_integer::operator*=(big_integer const &other) {
 big_integer big_integer::operator*(big_integer const &other) const {
     return big_integer(*this) *= other;
 }
-
 
 big_integer &big_integer::operator<<=(size_t shift_value) {
     if (is_equal_to_zero() || shift_value == 0)
@@ -424,7 +554,6 @@ big_integer big_integer::operator<<(size_t shift_value) const {
     return big_integer(*this) <<= shift_value;
 }
 
-
 bool big_integer::operator<(big_integer const &other) const {
     if (is_equal_to_zero() && other.is_equal_to_zero())
         return false;
@@ -471,7 +600,6 @@ bool big_integer::operator<=(big_integer const &other) const {
     return *this < other || *this == other;
 }
 
-
 bool big_integer::operator==(big_integer const &other) const {
     if (this == &other)
         return true;
@@ -500,6 +628,238 @@ bool big_integer::operator!=(big_integer const &other) const {
     return !(*this == other);
 }
 
-int main() {
-    std::cout << 135 + UINT_MAX - 200;
+std::pair<big_integer, big_integer> big_integer::divide(big_integer const &divisor) const {
+    if (divisor.one_digit()) {
+        big_integer copy = *this;
+        uint64_t temp, base = static_cast<uint64_t>(UINT_MAX)+1;
+        uint32_t carry = 0;
+        std::vector<unsigned int> cop(copy._other_digits[0] + 1, 0);
+        for (long long i = cop.size()-1; i >= 0; --i) {
+
+            temp = (base *
+                    static_cast<uint64_t>(carry) +
+                    static_cast<uint64_t>(copy.get_digit(i)));
+
+            cop[i] = (temp /
+                      static_cast<uint64_t>(divisor.get_digit(0)));
+
+            carry = (temp %
+                     static_cast<uint64_t>(divisor.get_digit(0)));
+        }
+        copy = big_integer(normal_digit(cop));
+        return {copy, big_integer(std::to_string(carry), 10)};
+    }
+
+    big_integer start_range;
+    big_integer end_range = *this;
+    big_integer potential_result;
+    big_integer result;
+    big_integer carry;
+    bool carry_less_divisor;
+
+    do {
+        potential_result = (start_range + end_range) / 2;
+        result = potential_result * divisor;
+        carry = *this - result;
+        carry_less_divisor = (carry >= 0) && (carry < divisor);
+
+        if (carry_less_divisor) {
+            return {potential_result, carry};
+        }
+        if (result > *this) {
+            end_range = potential_result;
+        } else {
+            start_range = potential_result;
+        }
+    } while (potential_result != 0);
+
+    throw std::logic_error("Error in divide function!");
+}
+
+big_integer &big_integer::operator/=(big_integer const &other){
+    if(other.is_equal_to_zero())
+        throw std::logic_error("div by zero");
+    if(is_equal_to_zero())
+        return *this;
+    if(*this == other){
+        return *this = big_integer(1);
+    }
+    if(this == &other){
+        return *this = big_integer(1);
+    }
+    if(!sign() && !other.sign()){
+        change_sign();
+        return *this /= -other;
+    }
+    if(!sign()){
+        change_sign();
+        *this /= other;
+        change_sign();
+        return *this;
+    }
+    if(!other.sign()){
+        *this /= -other;
+        change_sign();
+        return *this;
+    }
+    if(*this < other){
+        setZero();
+        return *this;
+    }
+
+    return (*this = divide(other).first);
+}
+
+big_integer big_integer::operator/(big_integer const &other) const{
+    return big_integer(*this) /= other;
+}
+
+big_integer &big_integer::operator%=(big_integer const &other){
+    if(other.is_equal_to_zero())
+        throw std::logic_error("in % div by zero");
+
+    if(is_equal_to_zero())
+        return *this;
+
+    if(*this == other)
+        return setZero();
+
+    if(this == &other)
+        return setZero();
+
+    if(!other.sign())
+        return *this %= -other;
+
+    if(!sign()) {
+        change_sign();
+        *this %= other;
+        if(!is_equal_to_zero()) change_sign();
+        return *this;
+    }
+
+    if(*this < other)
+        return *this;
+    return *this = divide(other).second;
+}
+
+big_integer big_integer::operator%(big_integer const &other) const{
+    return big_integer(*this) %= other;
+}
+
+std::istream &operator>>(std::istream &stream, big_integer &longint){
+    std::string str;
+    stream >> str;
+    longint = big_integer(str,10);
+    return stream;
+}
+
+std::ostream &operator<<(std::ostream &stream, big_integer const &longint){
+    big_integer copy = longint;
+    if(!longint.sign())
+        copy.change_sign();
+    if(copy.is_equal_to_zero())
+        return stream << 0;
+    std::string res;
+    while (copy > big_integer(0)) {
+        res.push_back('0' + (copy % big_integer(10)).get_abs_oldest_digit());
+        copy /= big_integer(10);
+    }
+    if(!longint.sign())
+        res.push_back('-');
+    std::reverse(res.begin(), res.end());
+    return stream << res;
+}
+
+bool big_integer::operator>(big_integer const &other) const{
+    if(!sign() != !other.sign())
+        return sign();
+
+    if(_other_digits[0] != other._other_digits[0])
+        return _other_digits[0] > other._other_digits[0];
+
+    if(get_abs_oldest_digit() != other.get_abs_oldest_digit())
+        return get_abs_oldest_digit() > other.get_abs_oldest_digit();
+
+    for(size_t i = _other_digits[0]; i > 1; i--){
+        if(_other_digits[i-1] != other._other_digits[i-1])
+            return _other_digits[i-1] > other._other_digits[i-1];
+    }
+    return false;
+}
+
+bool big_integer::operator>=(big_integer const &other) const{
+    if(*this > other || *this == other) return true;
+    return false;
+}
+
+big_integer big_integer::operator~() const {
+    std::vector<unsigned int> res;
+    for(size_t i = 0; i <= _other_digits[0]; i++)
+        res.push_back(~get_digit(i));
+
+    big_integer r(0);
+    r.pushArr(normal_digit(res));
+    return res;
+}
+
+big_integer &big_integer::operator&=(big_integer const &other){
+    std::vector<unsigned int> vec;
+    if(*this >= other) {
+        vec = pushInArr();
+        for(auto i = 0; i < vec.size(); i++)
+            vec[i] = vec[i] & other.get_digit(i);
+
+    }
+    else {
+        vec = other.pushInArr();
+        for(auto i = 0; i < vec.size(); i++)
+            vec[i] = vec[i] & get_digit(i);
+    }
+    pushArr(normal_digit(vec));
+    return *this;
+}
+
+big_integer big_integer::operator&(big_integer const &other) const{
+    return big_integer(*this) &= other;
+}
+
+big_integer &big_integer::operator|=(big_integer const &other){
+    std::vector<unsigned int> vec;
+    if(*this >= other){
+        vec = pushInArr();
+        for(auto i = 0; i < vec.size(); i++)
+            vec[i] = vec[i] | other.get_digit(i);
+    }
+    else {
+        vec = other.pushInArr();
+        for(auto i = 0; i < vec.size(); i++)
+            vec[i] = vec[i] | get_digit(i);
+    }
+    pushArr(normal_digit(vec));
+    return *this;
+}
+
+big_integer big_integer::operator|(big_integer const &other) const{
+    return big_integer(*this) |= other;
+}
+
+big_integer &big_integer::operator^=(big_integer const &other){
+    std::vector<unsigned int> vec;
+    if(*this >= other){
+        vec = pushInArr();
+        for(auto i = 0; i < vec.size(); i++){
+            vec[i] = vec[i] ^ other.get_digit(i);
+        }
+    }else{
+        vec = other.pushInArr();
+        for(auto i = 0; i < vec.size(); i++){
+            vec[i] = vec[i] ^ get_digit(i);
+        }
+    }
+    pushArr(normal_digit(vec));
+    return *this;
+}
+
+big_integer big_integer::operator^(big_integer const &other) const{
+    return big_integer(*this) ^= other;
 }

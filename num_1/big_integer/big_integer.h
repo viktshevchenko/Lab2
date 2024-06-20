@@ -8,6 +8,8 @@
 class big_integer final {
 
 private:
+    big_integer(std::vector<unsigned int> vec);
+
     int _oldest_digit;
     unsigned int *_other_digits;
 
@@ -17,6 +19,8 @@ public:
     big_integer(std::vector<int> const &digits);
     big_integer(std::string const &value, size_t base);
     big_integer(big_integer const &other);
+    big_integer(int digit);
+    big_integer();
 
     big_integer &operator=(big_integer const &other);
 
@@ -60,6 +64,14 @@ public:
     inline bool is_equal_to_zero() const noexcept;
 
     inline unsigned int get_digit(int position) const noexcept;
+
+    std::pair<big_integer, big_integer> divide(big_integer const &) const;
+
+    bool one_digit() const;
+
+    int get_abs_oldest_digit() const;
+
+    std::vector<unsigned int> normal_digit(std::vector<unsigned int> vec) const;
 
 public:
 
@@ -123,6 +135,11 @@ public:
 
     friend std::istream &operator>>(std::istream &stream, big_integer &value);
 
+    void pushArr(const std::vector<unsigned int> &vec);
+
+    big_integer &setZero();
+
+    std::vector<unsigned int> pushInArr() const;
 };
 
 #endif //BIG_INTEGER_BIG_INTEGER_H
